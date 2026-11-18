@@ -52,12 +52,14 @@ class PlayerLockOverlay extends StatefulWidget {
     required this.onBlocked,
     required this.alignments,
     this.padding = EdgeInsets.zero,
+    this.onPeek,
   });
   final bool locked;
   final VoidCallback onUnlock;
   final VoidCallback onBlocked;
   final List<AlignmentGeometry> alignments;
   final EdgeInsetsGeometry padding;
+  final VoidCallback? onPeek;
 
   @override
   State<PlayerLockOverlay> createState() => _PlayerLockOverlayState();
@@ -104,6 +106,7 @@ class _PlayerLockOverlayState extends State<PlayerLockOverlay> {
   void _tap() {
     if (!_shown) {
       setState(() => _shown = true);
+      widget.onPeek?.call();
     } else {
       widget.onBlocked();
     }

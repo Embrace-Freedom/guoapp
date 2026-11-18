@@ -75,6 +75,8 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
   int _streakTaps = 0;
   bool _holding = false;
   bool _visible = true;
+  Timer? _peekTimer;
+  bool _peek = false;
   bool _overBar = false;
   bool _pointer = false;
   _Popup? _popup;
@@ -141,6 +143,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
     _seekTimer?.cancel();
     _tapTimer?.cancel();
     _streakTimer?.cancel();
+    _peekTimer?.cancel();
     if (_holding) _session.endBoost();
     for (final subscription in _subscriptions) {
       unawaited(subscription.cancel());
@@ -156,7 +159,17 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
       !_session.locked &&
       (_visible || _session.paused || _session.stalled || !_session.ready);
 
+  bool get _controlsShown => _controlsVisible || _peek;
+
   bool get _lockable => widget.touch && widget.fullscreen && !desktopPlatform;
+
+  void _peekOnce() {
+    _peekTimer?.cancel();
+    setState(() => _peek = true);
+    _peekTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _peek = false);
+    });
+  }
 
   void _lock() {
     _pressEnd();
@@ -341,8 +354,9 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
     builder: (context, _) {
       final state = _session.player.state;
       final locked = _session.locked;
-      final visible = _controlsVisible;
-      final popup = visible ? _popup : null;
+      final visible = _controlsShown;
+      final interactive = _controlsVisible;
+      final popup = interactive ? _popup : null;
       return MouseRegion(
         onHover: (_) => _movePointer(),
         cursor: visible || _pointer
@@ -408,16 +422,18 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
               child: _streak != 0 ? _streakBadge() : null,
             ),
             IgnorePointer(
-              ignoring: !visible,
+              ignoring: !interactive,
               child: ExcludeFocus(
-                excluding: !visible,
+                excluding: !interactive,
                 child: AnimatedOpacity(
                   opacity: visible ? 1 : 0,
                   duration: state.playing
                       ? const Duration(milliseconds: 180)
                       : Duration.zero,
                   child: Listener(
-                    onPointerDown: widget.touch ? (_) => _scheduleHide() : null,
+                    onPointerDown: interactive && widget.touch
+                        ? (_) => _scheduleHide()
+                        : null,
                     child: _controls(context),
                   ),
                 ),
@@ -484,6 +500,7 @@ class _PlayerSurfaceState extends State<PlayerSurface> {
               padding: const EdgeInsets.only(left: 20, right: 20),
               onUnlock: _unlock,
               onBlocked: () => widget.onSay('已锁定，点击锁图标解锁'),
+              onPeek: _lockable ? _peekOnce : null,
             ),
           ],
         ),

@@ -66,6 +66,8 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
   double? _seekValue;
   double? _seekTarget;
   Timer? _seekTimer;
+  Timer? _peekTimer;
+  bool _peek = false;
   Timer? _idleTimer;
   bool _idle = false;
   bool _quietSwitch = false;
@@ -99,6 +101,7 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
     }
     _hintTimer?.cancel();
     _seekTimer?.cancel();
+    _peekTimer?.cancel();
     _idleTimer?.cancel();
     if (_immersive) {
       unawaited(
@@ -166,6 +169,14 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
           _session.error != null ||
           _session.loading && !_quietSwitch);
 
+  void _peekOnce() {
+    _peekTimer?.cancel();
+    setState(() => _peek = true);
+    _peekTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _peek = false);
+    });
+  }
+
   void _lock() {
     if (_holding) _pressEnd();
     unawaited(HapticFeedback.selectionClick());
@@ -199,7 +210,7 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
     return IgnorePointer(
       ignoring: !shown,
       child: AnimatedOpacity(
-        opacity: shown ? 1 : 0,
+        opacity: shown || _peek ? 1 : 0,
         duration: Motion.of(context, Motion.medium),
         curve: Motion.standard,
         child: child,
@@ -526,6 +537,7 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
                   ),
                   onUnlock: _unlock,
                   onBlocked: () => _say('已锁定，点击锁图标解锁'),
+                  onPeek: _peekOnce,
                 ),
                 IgnorePointer(
                   child: AnimatedOpacity(
@@ -960,7 +972,7 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
 
   Widget _progress(BuildContext context) => PlaybackProgressBuilder(
     player: _session.player,
-    active: _chromeShown,
+    active: _chromeShown || _peek,
     builder: _progressBar,
   );
 

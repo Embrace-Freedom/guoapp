@@ -73,6 +73,8 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
   String _hint = '';
   bool? _full;
   bool _visible = true;
+  Timer? _peekTimer;
+  bool _peek = false;
   bool _selecting = false;
   bool _holding = false;
   bool _dragging = false;
@@ -141,6 +143,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
     _clockTimer?.cancel();
     _seekTimer?.cancel();
     _hintTimer?.cancel();
+    _peekTimer?.cancel();
     _tabs.dispose();
     if (_holding) _session.endBoost();
     if (widget.onFullscreen == null) {
@@ -227,6 +230,14 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
   void _show() {
     if (!_visible) setState(() => _visible = true);
     _scheduleHide();
+  }
+
+  void _peekOnce() {
+    _peekTimer?.cancel();
+    setState(() => _peek = true);
+    _peekTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _peek = false);
+    });
   }
 
   void _toggleControls() {
@@ -473,7 +484,8 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
   Widget _video(BuildContext context, bool full) {
     final session = _session;
     final locked = session.locked;
-    final visible = !locked && (_visible || _pinned);
+    final visible = !locked && (_visible || _pinned) || _peek;
+    final interactive = !locked && (_visible || _pinned);
     final sidePanel = switch (_panel) {
       final panel? when full && _sidePanel(panel) => _panelBody(context, panel),
       _ => null,
@@ -536,17 +548,19 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
           child: _streak != 0 ? _streakBadge(full) : null,
         ),
         IgnorePointer(
-          ignoring: !visible,
+          ignoring: !interactive,
           child: AnimatedOpacity(
             opacity: visible ? 1 : 0,
             duration: const Duration(milliseconds: 180),
             child: Listener(
-              onPointerDown: (_) => _scheduleHide(),
+              onPointerDown: interactive ? (_) => _scheduleHide() : null,
               child: full ? _fullControls(context) : _miniControls(context),
             ),
           ),
         ),
-        if (full && !visible && session.store.playbackPreferences.progressLine)
+        if (full &&
+            !interactive &&
+            session.store.playbackPreferences.progressLine)
           Positioned(
             left: 0,
             right: 0,
@@ -654,6 +668,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
           ),
           onUnlock: _unlock,
           onBlocked: () => _say('已锁定，点击锁图标解锁'),
+          onPeek: _peekOnce,
         ),
       ],
     );
@@ -943,7 +958,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
 
   Widget _clock(double fontSize) => PlaybackProgressBuilder(
     player: _session.player,
-    active: _visible || _pinned,
+    active: _visible || _pinned || _peek,
     builder: (context) {
       final state = _session.player.state;
       final position = _seekValue != null
@@ -1019,7 +1034,7 @@ class _LandscapePlayerPageState extends State<LandscapePlayerPage>
   Widget _progress(BuildContext context, {required double thumb}) =>
       PlaybackProgressBuilder(
         player: _session.player,
-        active: _visible || _pinned,
+        active: _visible || _pinned || _peek,
         builder: (context) => _progressBar(context, thumb: thumb),
       );
 
