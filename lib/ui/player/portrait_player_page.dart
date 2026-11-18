@@ -16,6 +16,7 @@ import '../theme/app_theme.dart';
 import '../theme/motion.dart';
 import '../widgets/contained_slider.dart';
 import '../widgets/follow_button.dart';
+import '../widgets/motion/motion_widgets.dart';
 import 'danmaku_overlay.dart';
 import 'episode_grid.dart';
 import 'fade_presence.dart';
@@ -245,6 +246,14 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
     _hintTimer = Timer(const Duration(milliseconds: 1200), () {
       if (mounted) setState(() => _hint = '');
     });
+  }
+
+  Future<void> _change(Future<void> Function() change) async {
+    try {
+      await change();
+    } catch (_) {
+      _saveFailed();
+    }
   }
 
   bool _scrolled(ScrollNotification notification) {
@@ -934,6 +943,24 @@ class _PortraitPlayerPageState extends State<PortraitPlayerPage>
             ],
           ),
         ),
+        if (session.danmakuSupported)
+          IconButton(
+            onPressed: () => unawaited(_change(session.toggleDanmaku)),
+            icon: ToggleIconSwitcher(
+              child: Icon(
+                session.danmakuEnabled
+                    ? Icons.subtitles_rounded
+                    : Icons.subtitles_off_rounded,
+                key: ValueKey(session.danmakuEnabled),
+                shadows: shadow,
+              ),
+            ),
+            color: session.danmakuEnabled
+                ? Theme.of(context).colorScheme.primaryFixedDim
+                : Colors.white,
+            tooltip: session.danmakuEnabled ? '关闭弹幕' : '打开弹幕',
+            style: IconButton.styleFrom(fixedSize: const Size.square(48)),
+          ),
         if (!desktopPlatform) PlayerLockButton(locked: false, onPressed: _lock),
         FollowIcon(
           store: widget.store,
